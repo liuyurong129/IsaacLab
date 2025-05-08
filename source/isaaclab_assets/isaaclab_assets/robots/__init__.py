@@ -6,7 +6,8 @@
 ##
 # Configuration for different assets.
 ##
-
+from .airbot import *
+from .airbot_box import *
 from .allegro import *
 from .ant import *
 from .anymal import *
