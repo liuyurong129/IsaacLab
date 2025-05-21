@@ -33,17 +33,21 @@ class AirbotEnvCfg(ReachEnvCfg):
         self.rewards.end_effector_position_tracking.params["asset_cfg"].body_names = ["link6"]
         self.rewards.end_effector_position_tracking_fine_grained.params["asset_cfg"].body_names = ["link6"]
         self.rewards.end_effector_orientation_tracking.params["asset_cfg"].body_names = ["link6"]
-
+        self.rewards.end_effector_position_tracking.weight= -0.2
+        self.rewards.end_effector_position_tracking_fine_grained.weight=0.2
+        self.rewards.end_effector_orientation_tracking.weight=-0.1
+        self.rewards.action_rate.weight=-0.001
+        self.rewards.joint_vel.weight=-0.001
         # override actions
         self.actions.arm_action = mdp.JointPositionActionCfg(
-            asset_name="robot", joint_names=["joint.*"], scale=0.5, use_default_offset=True
+            asset_name="robot", joint_names=["joint.*"], scale=1.5, use_default_offset=True
         )
         # override command generator body
         # end-effector is along z-direction
         self.commands.ee_pose.body_name = "link6"
-        # self.commands.ee_pose.ranges.roll = (math.pi, math.pi)
-        self.commands.ee_pose.ranges.pitch = (math.pi, math.pi)
-        self.commands.ee_pose.ranges.yaw = (-math.pi/2, math.pi/2)
+        self.commands.ee_pose.ranges.roll = (math.pi/2, math.pi/2)
+        self.commands.ee_pose.ranges.pitch = (math.pi/2, math.pi*3/2)
+        self.commands.ee_pose.ranges.yaw = (math.pi/2, math.pi/2)
 
 
 @configclass
