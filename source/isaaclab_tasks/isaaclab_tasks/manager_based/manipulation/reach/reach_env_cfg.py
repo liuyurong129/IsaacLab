@@ -124,7 +124,29 @@ class EventCfg:
             "velocity_range": (0.0, 0.0),
         },
     )
-
+    robot_joint_stiffness_and_damping = EventTerm(
+      func=mdp.randomize_actuator_gains,
+      mode="reset",
+      params={
+          "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+          "stiffness_distribution_params": (0.75, 1.5),
+          "damping_distribution_params": (0.3, 3.0),
+          "operation": "scale",
+          "distribution": "log_uniform",
+      },
+    )
+    # robot_joint_pos_limits = EventTerm(
+    #     func=mdp.randomize_joint_parameters,
+    #     min_step_count_between_reset=720,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+    #         "lower_limit_distribution_params": (0.00, 0.01),
+    #         "upper_limit_distribution_params": (0.00, 0.01),
+    #         "operation": "add",
+    #         "distribution": "gaussian",
+    #     },
+    # )
 
 @configclass
 class RewardsCfg:
@@ -146,7 +168,11 @@ class RewardsCfg:
         weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", body_names=MISSING), "command_name": "ee_pose"},
     )
-
+    # gated_ee_velocity_penalty = RewTerm(
+    #     func=mdp.gated_ee_velocity_penalty,
+    #     weight=0.1,
+    #     params={"asset_cfg": SceneEntityCfg("robot", body_names=["link6"]),"command_name": "ee_pose", "threshold": 0.05},
+    # )
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-0.0001)
     joint_vel = RewTerm(
@@ -205,4 +231,4 @@ class ReachEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = 12.0
         self.viewer.eye = (3.5, 3.5, 3.5)
         # simulation settings
-        self.sim.dt = 1.0 / 60.0
+        self.sim.dt = 1.0 / 200.0
