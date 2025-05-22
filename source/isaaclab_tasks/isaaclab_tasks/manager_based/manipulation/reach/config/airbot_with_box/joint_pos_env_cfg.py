@@ -38,14 +38,19 @@ class AirbotBoxEnvCfg(ReachEnvCfg):
         self.actions.arm_action = mdp.JointPositionActionCfg(
             asset_name="robot", joint_names=["joint.*"], scale=0.5, use_default_offset=True
         )
+
+        self.rewards.end_effector_position_tracking.weight= -0.2
+        self.rewards.end_effector_position_tracking_fine_grained.weight=0.2
+        self.rewards.end_effector_orientation_tracking.weight= -0.1
+        self.rewards.action_rate.weight=-0.001
+        self.rewards.joint_vel.weight=-0.001
         # override command generator body
-        # end-effector is along z-direction
         self.commands.ee_pose.body_name = "ee_link"
         # self.commands.ee_pose.ranges.roll = (0,0)
         # self.commands.ee_pose.ranges.pitch = (math.pi/2,math.pi/2)
         # self.commands.ee_pose.ranges.yaw = (-math.pi/2, math.pi/2)
         self.commands.ee_pose.ranges.roll = (math.pi/2, math.pi/2)
-        self.commands.ee_pose.ranges.pitch = (-math.pi/2, math.pi/2)
+        self.commands.ee_pose.ranges.pitch = (math.pi/2, math.pi*3/2)
         self.commands.ee_pose.ranges.yaw = (math.pi/2, math.pi/2)
         # self.commands.ee_pose.ranges.pos_x = (0.75, 0.8)
         self.commands.ee_pose.ranges.pos_z = (0.2, 0.5)

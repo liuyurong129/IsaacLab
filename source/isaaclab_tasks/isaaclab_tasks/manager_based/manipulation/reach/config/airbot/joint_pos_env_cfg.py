@@ -9,16 +9,11 @@ from isaaclab.utils import configclass
 
 import isaaclab_tasks.manager_based.manipulation.reach.mdp as mdp
 from isaaclab_tasks.manager_based.manipulation.reach.reach_env_cfg import ReachEnvCfg
-
-##
 # Pre-defined configs
 ##
 from isaaclab_assets import AIRBOT_CFG  # isort: skip
 
 
-##
-# Environment configuration
-##
 
 
 @configclass
@@ -35,12 +30,12 @@ class AirbotEnvCfg(ReachEnvCfg):
         self.rewards.end_effector_orientation_tracking.params["asset_cfg"].body_names = ["link6"]
         self.rewards.end_effector_position_tracking.weight= -0.2
         self.rewards.end_effector_position_tracking_fine_grained.weight=0.2
-        self.rewards.end_effector_orientation_tracking.weight=-0.1
+        self.rewards.end_effector_orientation_tracking.weight= -0.1
         self.rewards.action_rate.weight=-0.001
         self.rewards.joint_vel.weight=-0.001
         # override actions
         self.actions.arm_action = mdp.JointPositionActionCfg(
-            asset_name="robot", joint_names=["joint.*"], scale=1.5, use_default_offset=True
+            asset_name="robot", joint_names=["joint.*"], scale=0.5, use_default_offset=True
         )
         # override command generator body
         # end-effector is along z-direction

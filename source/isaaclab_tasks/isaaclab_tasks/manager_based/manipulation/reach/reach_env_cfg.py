@@ -135,18 +135,15 @@ class EventCfg:
           "distribution": "log_uniform",
       },
     )
-    # robot_joint_pos_limits = EventTerm(
-    #     func=mdp.randomize_joint_parameters,
-    #     min_step_count_between_reset=720,
-    #     mode="reset",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-    #         "lower_limit_distribution_params": (0.00, 0.01),
-    #         "upper_limit_distribution_params": (0.00, 0.01),
-    #         "operation": "add",
-    #         "distribution": "gaussian",
-    #     },
-    # )
+    robot_action_delay= EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="reset", 
+        params={
+            "delay_range": (0.005, 0.03),  
+            "asset_cfg": SceneEntityCfg("robot"),     
+            "filter_alpha": 0.7,     
+        }
+    )
 
 @configclass
 class RewardsCfg:
@@ -168,11 +165,6 @@ class RewardsCfg:
         weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", body_names=MISSING), "command_name": "ee_pose"},
     )
-    # gated_ee_velocity_penalty = RewTerm(
-    #     func=mdp.gated_ee_velocity_penalty,
-    #     weight=0.1,
-    #     params={"asset_cfg": SceneEntityCfg("robot", body_names=["link6"]),"command_name": "ee_pose", "threshold": 0.05},
-    # )
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-0.0001)
     joint_vel = RewTerm(
@@ -200,11 +192,6 @@ class CurriculumCfg:
     joint_vel = CurrTerm(
         func=mdp.modify_reward_weight, params={"term_name": "joint_vel", "weight": -0.001, "num_steps": 4500}
     )
-
-
-##
-# Environment configuration
-##
 
 
 @configclass

@@ -1387,3 +1387,201 @@ def _randomize_prop_by_op(
             f"Unknown operation: '{operation}' for property randomization. Please use 'add', 'scale', or 'abs'."
         )
     return data
+
+
+def randomize_action_delay(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    delay_range: tuple[float, float],
+    asset_cfg: SceneEntityCfg,
+    filter_alpha: float = 0.7,
+    enable_filter: bool = True,
+):
+    """Randomize action delays to simulate real-world control latency and filtering effects.
+    
+    This function adds realistic delays and low-pass filtering to robot actions, helping to bridge
+    the sim2real gap by simulating communication delays, processing time, and mechanical filtering
+    that occur in real robotic systems.
+    
+    The delay buffer and filtering state are stored as attributes on the asset object to maintain
+    state between calls. On first call or reset, the buffers are initialized.
+    
+    Args:
+        env: The environment instance.
+        env_ids: Environment IDs to apply randomization to. If None, applies to all environments.
+        delay_range: Tuple of (min_delay, max_delay) in seconds. Delays will be randomly sampled
+            from this range for each environment.
+        asset_cfg: Configuration for the articulated asset to apply delays to.
+        filter_alpha: Smoothing factor for exponential moving average filter (0.0 to 1.0).
+            Higher values = less smoothing. Only used when enable_filter=True.
+        enable_filter: Whether to apply low-pass filtering in addition to delays.
+    """
+    # Extract the asset
+    asset: Articulation = env.scene[asset_cfg.name]
+    
+    # Resolve environment IDs
+    if env_ids is None:
+        env_ids = torch.arange(asset.data.root_state_w.shape[0], device=asset.device)
+    
+    # Initialize delay system if not already done
+    if not hasattr(asset, '_action_delay_initialized'):
+        _initialize_action_delay_system(env, asset, delay_range, filter_alpha, enable_filter)
+    
+    # Update delay parameters for specified environments
+    physics_dt = env.sim.get_physics_dt()
+    
+    # Sample new delays for the specified environments
+    delay_seconds = math_utils.sample_uniform(
+        delay_range[0], delay_range[1], 
+        (len(env_ids),), 
+        device=asset.device
+    )
+    delay_steps = (delay_seconds / physics_dt).long().clamp(0, asset._delay_buffer_size - 1)
+    asset._delay_steps[env_ids] = delay_steps
+    
+    # Reset buffer state for these environments
+    asset._buffer_indices[env_ids] = 0
+    asset._action_buffer[env_ids].zero_()
+    if enable_filter:
+        asset._filtered_actions[env_ids].zero_()
+
+
+def _initialize_action_delay_system(
+    env: ManagerBasedEnv,
+    asset: Articulation,
+    delay_range: tuple[float, float],
+    filter_alpha: float,
+    enable_filter: bool,
+):
+    """Initialize the action delay system for an asset."""
+    
+    # Calculate buffer size based on maximum delay and physics timestep
+    physics_dt = env.sim.get_physics_dt()
+    max_delay_steps = int(delay_range[1] / physics_dt) + 1
+    buffer_size = max(max_delay_steps, 2)  # Minimum buffer size of 2
+    
+    # Store parameters
+    asset._delay_buffer_size = buffer_size
+    asset._delay_filter_alpha = filter_alpha
+    asset._delay_enable_filter = enable_filter
+    
+    # Initialize buffers
+    num_envs = asset.data.root_state_w.shape[0]  # Get number of environments from root state shape
+    num_joints = asset.num_joints
+    device = asset.device
+    
+    # Action history buffer: [num_envs, num_joints, buffer_size]
+    asset._action_buffer = torch.zeros(
+        (num_envs, num_joints, buffer_size), 
+        device=device, 
+        dtype=torch.float32
+    )
+    
+    # Current buffer index for each environment
+    asset._buffer_indices = torch.zeros(num_envs, device=device, dtype=torch.long)
+    
+    # Delay steps for each environment
+    asset._delay_steps = torch.zeros(num_envs, device=device, dtype=torch.long)
+    
+    # Filtered action state for low-pass filtering
+    if enable_filter:
+        asset._filtered_actions = torch.zeros((num_envs, num_joints), device=device, dtype=torch.float32)
+    
+    # Wrap the original set_joint_position_target method
+    if not hasattr(asset, '_original_set_joint_position_target'):
+        asset._original_set_joint_position_target = asset.set_joint_position_target
+        asset.set_joint_position_target = lambda *args, **kwargs: _delayed_set_joint_position_target(asset, *args, **kwargs)
+    
+    asset._action_delay_initialized = True
+    
+    print(f"[Action Delay] Initialized delay system with buffer size: {buffer_size}, "
+          f"delay range: {delay_range}s, filter: {enable_filter}")
+
+
+def _delayed_set_joint_position_target(asset: Articulation, targets: torch.Tensor, joint_ids=None, env_ids=None):
+    """Wrapper for set_joint_position_target that applies delays and filtering."""
+    
+    if env_ids is None:
+        env_ids = torch.arange(targets.shape[0], device=asset.device)
+    
+    # Apply delays to the targets
+    delayed_targets = _apply_action_delays(asset, targets, env_ids)
+    
+    # Call original method with delayed targets
+    return asset._original_set_joint_position_target(delayed_targets, joint_ids, env_ids)
+
+
+def _apply_action_delays(asset: Articulation, actions: torch.Tensor, env_ids: torch.Tensor) -> torch.Tensor:
+    """Apply action delays and filtering to the input actions."""
+    
+    # Store current actions in buffer
+    current_indices = asset._buffer_indices[env_ids]
+    
+    # Update buffer with new actions - vectorized operation
+    asset._action_buffer[env_ids, :, current_indices] = actions
+    
+    # Advance buffer indices (circular buffer)
+    asset._buffer_indices[env_ids] = (current_indices + 1) % asset._delay_buffer_size
+    
+    # Calculate delay indices - vectorized operation
+    delay_indices = (current_indices.unsqueeze(-1) - asset._delay_steps[env_ids].unsqueeze(-1)) % asset._delay_buffer_size
+    
+    # Retrieve delayed actions - vectorized operation
+    delayed_actions = torch.gather(
+        asset._action_buffer[env_ids], 
+        dim=2, 
+        index=delay_indices.unsqueeze(1).expand(-1, asset.num_joints, -1)
+    ).squeeze(-1)
+    
+    # Apply low-pass filtering if enabled
+    if asset._delay_enable_filter:
+        # Vectorized exponential moving average
+        asset._filtered_actions[env_ids] = (
+            asset._delay_filter_alpha * delayed_actions + 
+            (1.0 - asset._delay_filter_alpha) * asset._filtered_actions[env_ids]
+        )
+        return asset._filtered_actions[env_ids]
+    else:
+        return delayed_actions
+
+
+def reset_action_delay_buffers(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    asset_cfg: SceneEntityCfg,
+):
+    """Reset action delay buffers for specified environments."""
+    # Extract the asset
+    asset: Articulation = env.scene[asset_cfg.name]
+    
+    # Resolve environment IDs
+    if env_ids is None:
+        env_ids = torch.arange(asset.data.root_state_w.shape[0], device=asset.device)
+    
+    # Reset buffers if delay system is initialized
+    if hasattr(asset, '_action_delay_initialized'):
+        asset._buffer_indices[env_ids] = 0
+        asset._action_buffer[env_ids].zero_()
+        if hasattr(asset, '_filtered_actions'):
+            asset._filtered_actions[env_ids].zero_()
+
+
+def disable_action_delay(
+    env: ManagerBasedEnv,
+    asset_cfg: SceneEntityCfg,
+):
+    """Disable action delay for an asset and restore original behavior."""
+    asset: Articulation = env.scene[asset_cfg.name]
+    
+    if hasattr(asset, '_original_set_joint_position_target'):
+        asset.set_joint_position_target = asset._original_set_joint_position_target
+        delattr(asset, '_original_set_joint_position_target')
+    
+    # Clean up delay-related attributes
+    for attr in ['_action_delay_initialized', '_action_buffer', '_buffer_indices', 
+                 '_delay_steps', '_filtered_actions', '_delay_buffer_size', 
+                 '_delay_filter_alpha', '_delay_enable_filter']:
+        if hasattr(asset, attr):
+            delattr(asset, attr)
+    
+    print("[Action Delay] Disabled action delay system")

@@ -24,7 +24,7 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 AIRBOT_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"/home/LYR/airbot_usd/airbot_play_v3_0_gripper/airbot_play_v3_0_gripper.usd",
+        usd_path=f"/home/LYR/airbot_usd/airbot_mujoco/airbot_mujoco.usd",
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -43,66 +43,32 @@ AIRBOT_CFG = ArticulationCfg(
             "joint4": 0.0,
             "joint5": 0.0,
             "joint6": 0.0,
+            "endright"  : 0.0,
+            "endleft"   : 0.0,
         },
     ),
     actuators={
-        "airbot_arm_box_1": ImplicitActuatorCfg(
-            joint_names_expr=["joint1"],
-            effort_limit=18.0,
-            velocity_limit=3.14,
-            stiffness=150.0,
-            damping=1.5,
+        "airbot_arm": ImplicitActuatorCfg(
+            joint_names_expr=["joint[1-6]"],
+            effort_limit=87.0,
+            velocity_limit=2.175,
+            stiffness=80.0,
+            damping=4.0,
         ),
-        "airbot_arm_box_2": ImplicitActuatorCfg(
-            joint_names_expr=["joint2"],
-            effort_limit=18.0,
-            velocity_limit=3.14,
-            stiffness=150.0,
-            damping=1.75,
-        ),
-        "airbot_arm_box_3": ImplicitActuatorCfg(
-            joint_names_expr=["joint3"],
-            effort_limit=18.0,
-            velocity_limit=3.14,
-            stiffness=150.0,
-            damping=1.5,
-        ),
-        "airbot_arm_box_4": ImplicitActuatorCfg(
-            joint_names_expr=["joint4"],
-            effort_limit=3.0,
-            velocity_limit=6.28,
-            stiffness=25.0,
-            damping=0.5,
-        ),
-        "airbot_arm_box_5": ImplicitActuatorCfg(
-            joint_names_expr=["joint5"],
-            effort_limit=3.0,
-            velocity_limit=6.28,
-            stiffness=25.0,
-            damping=1.5,
-        ),
-        "airbot_arm_box_6": ImplicitActuatorCfg(
-            joint_names_expr=["joint6"],
-            effort_limit=3.0,
-            velocity_limit=6.28,
-            stiffness=25.0,
-            damping=0.5,
-        ),
-        # "airbot_arm_1": ImplicitActuatorCfg(
-        #     joint_names_expr=["joint[1-3]"],
-        #     effort_limit=18.0,
-        #     velocity_limit=3.14,
+        # "panda_forearm": ImplicitActuatorCfg(
+        #     joint_names_expr=["panda_joint[5-7]"],
+        #     effort_limit=12.0,
+        #     velocity_limit=2.61,
         #     stiffness=80.0,
         #     damping=4.0,
         # ),
-        # "airbot_arm_2": ImplicitActuatorCfg(
-        #     joint_names_expr=["joint[4-6]"],
-        #     effort_limit=3.0,
-        #     velocity_limit=6.28,
-        #     stiffness=80.0,
-        #     damping=4.0,
-        # ),
-
+        "airbot_hand": ImplicitActuatorCfg(
+            joint_names_expr=["endright", "endleft"],
+            effort_limit=200.0,
+            velocity_limit=0.2,
+            stiffness=2e3,
+            damping=1e2,
+        ),
     },
     soft_joint_pos_limit_factor=1.0,
 )

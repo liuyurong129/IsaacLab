@@ -49,8 +49,9 @@ def position_command_error_tanh(
     des_pos_w, _ = combine_frame_transforms(asset.data.root_state_w[:, :3], asset.data.root_state_w[:, 3:7], des_pos_b)
     curr_pos_w = asset.data.body_state_w[:, asset_cfg.body_ids[0], :3]  # type: ignore
     distance = torch.norm(curr_pos_w - des_pos_w, dim=1)
-    return 1 - torch.tanh(distance / std)
-
+    std = max(std, 1e-6) 
+    return torch.exp(-0.5 * (distance / std) ** 2)
+    # return 1 - torch.tanh(distance / std)
 
 def orientation_command_error(env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """Penalize tracking orientation error using shortest path.
@@ -67,3 +68,21 @@ def orientation_command_error(env: ManagerBasedRLEnv, command_name: str, asset_c
     des_quat_w = quat_mul(asset.data.root_state_w[:, 3:7], des_quat_b)
     curr_quat_w = asset.data.body_state_w[:, asset_cfg.body_ids[0], 3:7]  # type: ignore
     return quat_error_magnitude(curr_quat_w, des_quat_w)
+
+# def gated_ee_velocity_penalty(
+#     env: ManagerBasedRLEnv,command_name: str, asset_cfg: SceneEntityCfg, threshold: float = 0.05) -> torch.Tensor:
+#     asset: RigidObject = env.scene[asset_cfg.name]
+#     ee_pos = asset.data.body_state_w[:, asset_cfg.body_ids[0], :3]
+#     cmd = env.command_manager.get_command(command_name)
+#     des_pos_b = cmd[:, :3]
+#     des_pos_w, _ = combine_frame_transforms(
+#         asset.data.root_state_w[:, :3], asset.data.root_state_w[:, 3:7], des_pos_b
+#     )
+#     dist = torch.norm(ee_pos - des_pos_w, dim=1)
+
+#     joint_vel = asset.data.joint_vel
+#     joint_speed = torch.norm(joint_vel, dim=1)
+
+#     penalty = torch.where(dist < threshold, -joint_speed, torch.zeros_like(joint_speed))
+
+#     return penalty
