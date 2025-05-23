@@ -141,7 +141,7 @@ class EventCfg:
         params={
             "delay_range": (0.005, 0.03),  
             "asset_cfg": SceneEntityCfg("robot"),     
-            "filter_alpha": 0.7,     
+            "filter_alpha": 0.5,     
         }
     )
 

@@ -52,8 +52,8 @@ class AirbotBoxEnvCfg(ReachEnvCfg):
         self.commands.ee_pose.ranges.roll = (math.pi/2, math.pi/2)
         self.commands.ee_pose.ranges.pitch = (math.pi/2, math.pi*3/2)
         self.commands.ee_pose.ranges.yaw = (math.pi/2, math.pi/2)
-        # self.commands.ee_pose.ranges.pos_x = (0.75, 0.8)
-        self.commands.ee_pose.ranges.pos_z = (0.2, 0.5)
+        # self.commands.ee_pose.ranges.pos_x = (0.55, 0.8)
+        self.commands.ee_pose.ranges.pos_z = (0.2, 0.4)
 
 
 @configclass
