@@ -104,3 +104,18 @@ def track_ang_vel_z_world_exp(
     asset = env.scene[asset_cfg.name]
     ang_vel_error = torch.square(env.command_manager.get_command(command_name)[:, 2] - asset.data.root_ang_vel_w[:, 2])
     return torch.exp(-ang_vel_error / std**2)
+
+def base_height_target(env, target_height: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Reward for keeping the robot base at a target height."""
+    asset = env.scene[asset_cfg.name]
+    height_error = asset.data.root_pos_w[:, 2] - target_height
+    return torch.exp(-torch.square(height_error) * 25.0)  # exponent kernel, scale可调整
+
+
+def base_orientation_upright(env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Penalty for deviation from upright base orientation (identity quaternion)."""
+    asset = env.scene[asset_cfg.name]
+    # target orientation is [0, 0, 0, 1]
+    quat = asset.data.root_quat_w
+    upright_error = 1.0 - torch.square(quat[:, 3])  # w成分离目标越远惩罚越大
+    return -upright_error  # 这是惩罚项，越接近直立越好

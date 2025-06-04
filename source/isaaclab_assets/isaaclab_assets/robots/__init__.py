@@ -8,6 +8,7 @@
 ##
 from .airbot import *
 from .airbot_box import *
+from .dual_airbot import *
 from .allegro import *
 from .ant import *
 from .anymal import *
