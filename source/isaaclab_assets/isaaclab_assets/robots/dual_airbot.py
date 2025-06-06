@@ -23,7 +23,7 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 ##
 DUAL_AIRBOT_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"/home/LYR/airbot_play_v3_1_with_G2_UC_calibration/dual_airbot_play_system/dual_airbot_play_system.usd",
+        usd_path=f"/home/LYR/airbot_play_v3_1_with_G2_UC_calibration/airbot_play_v3_1/airbot_play_v3_1.usd",
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -38,18 +38,12 @@ DUAL_AIRBOT_CFG = ArticulationCfg(
 
     init_state=ArticulationCfg.InitialStateCfg(
         joint_pos={
-            "left_joint1": 0.0,
-            "left_joint2": 0.0,
-            "left_joint3": 0.0,
-            "left_joint4": 0.0,
-            "left_joint5": 0.0,
-            "left_joint6": 0.0,
-            "right_joint1": 0.0,
-            "right_joint2": 0.0, 
-            "right_joint3": 0.0,
-            "right_joint4": 0.0,
-            "right_joint5": 0.0,
-            "right_joint6": 0.0,
+            "joint1": 0.0,
+            "joint2": 0.0,
+            "joint3": 0.0,
+            "joint4": 0.0,
+            "joint5": 0.0,
+            "joint6": 0.0,
         },
     ),
     actuators={

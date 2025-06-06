@@ -9,47 +9,75 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.utils import configclass
 
+from isaaclab.sensors import FrameTransformerCfg
 import isaaclab_tasks.manager_based.manipulation.reach.mdp as mdp
-from isaaclab_tasks.manager_based.manipulation.reach.reach_env_cfg import ReachEnvCfg
+from isaaclab_tasks.manager_based.manipulation.reach.dual_reach_env_cfg import DualArmReachEnvCfg
+from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 # Pre-defined configs
-##
-from isaaclab_assets.robots.dual_airbot import  DUAL_AIRBOT_CFG # isort: skip
-
+from isaaclab_assets.robots.dual_airbot import DUAL_AIRBOT_CFG  # isort: skip
+from isaaclab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 @configclass
-class DualAirbotEnvCfg(ReachEnvCfg):
+class DualAirbotEnvCfg(DualArmReachEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
 
-        # switch robot to franka
-        self.scene.robot = DUAL_AIRBOT_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        # 配置第一个机械臂 (Robot1)
+        self.scene.robot1 = DUAL_AIRBOT_CFG.replace(prim_path="{ENV_REGEX_NS}/robot1")
+        
+        # 配置第二个机械臂 (Robot2)
+        robot2_cfg = DUAL_AIRBOT_CFG.replace(prim_path="{ENV_REGEX_NS}/robot2")
+        robot2_cfg.init_state.pos = (0.47, 0.0, 0.0)  # 设置第二个机械臂的位置
+        robot2_cfg.init_state.rot = (0.0, 0.0, 0.0, 1.0)
+        self.scene.robot2 = robot2_cfg
 
-        # override rewards
-        self.rewards.end_effector_position_tracking.params["asset_cfg"].body_names = ["box"]
-        self.rewards.end_effector_position_tracking_fine_grained.params["asset_cfg"].body_names = ["box"]
-        self.rewards.end_effector_orientation_tracking.params["asset_cfg"].body_names = ["box"]
-        self.rewards.end_effector_position_tracking.weight= -0.2
-        self.rewards.end_effector_position_tracking_fine_grained.weight=0.2
-        self.rewards.end_effector_orientation_tracking.weight= -0.1
-        # self.rewards.stay_still.params["asset_cfg"].body_names = ["right_base_link"]
-        # self.rewards.stay_still.weight =100000000.0
-        # self.rewards.stay_still.params["target_pos"] = (0.48284, 0.0, 0.0)
-        self.rewards.action_rate.weight=-0.001
-        self.rewards.joint_vel.weight=-0.001
-        # override actions
-        self.actions.arm_action = mdp.JointPositionActionCfg(
-            asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True
+        # 配置动作 - 为两个机械臂分别配置
+        self.actions.arm1_action = mdp.JointPositionActionCfg(
+            asset_name="robot1", joint_names=[".*"], scale=0.5, use_default_offset=True
         )
-        # override command generator body
-        # end-effector is along z-direction
-        self.commands.ee_pose.body_name = "box"
-        self.commands.ee_pose.ranges.pos_x=(0.35, 0.35)
-        self.commands.ee_pose.ranges.pos_y=(-0.2, 0.2)
-        self.commands.ee_pose.ranges.pos_z=(0.15, 0.5)
-        self.commands.ee_pose.ranges.roll = (math.pi/2, math.pi/2)
-        self.commands.ee_pose.ranges.pitch = (math.pi/2, math.pi/2)
-        self.commands.ee_pose.ranges.yaw = (math.pi/2, math.pi/2)
+        
+        self.actions.arm2_action = mdp.JointPositionActionCfg(
+            asset_name="robot2", joint_names=[".*"], scale=0.5, use_default_offset=True
+        )
+
+        # # override command generator body
+        self.commands.object_pose1.body_name = "link6" 
+        self.commands.object_pose2.body_name = "link6" 
+
+        marker_cfg = FRAME_MARKER_CFG.copy()
+        marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
+        marker_cfg.prim_path = "/Visuals/FrameTransformer"
+        self.scene.ee_frame1 = FrameTransformerCfg(
+            prim_path="{ENV_REGEX_NS}/robot1/link6",
+            debug_vis=False,
+            visualizer_cfg=marker_cfg,
+            target_frames=[
+                FrameTransformerCfg.FrameCfg(
+                    prim_path="{ENV_REGEX_NS}/robot1/link6",
+                    name="end_effector",
+                    offset=OffsetCfg(
+                        pos=[0.0, 0.0, 0.0],
+                    ),
+                ),
+            ],
+        )
+        self.scene.ee_frame2 = FrameTransformerCfg(
+            prim_path="{ENV_REGEX_NS}/robot2/link6",
+            debug_vis=False,
+            visualizer_cfg=marker_cfg,
+            target_frames=[
+                FrameTransformerCfg.FrameCfg(
+                    prim_path="{ENV_REGEX_NS}/robot2/link6",
+                    name="end_effector",
+                    offset=OffsetCfg(
+                        pos=[0.0, 0.0, 0.0],
+                    ),
+                ),
+            ],
+        )
+
+
 
 
 @configclass

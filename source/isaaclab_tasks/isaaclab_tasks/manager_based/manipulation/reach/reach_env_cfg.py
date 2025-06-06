@@ -165,13 +165,6 @@ class RewardsCfg:
         weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", body_names=MISSING), "command_name": "ee_pose"},
     )
-    
-    # stay_still = RewTerm(
-    #     func=mdp.stay_still_reward,
-    #     weight=0.0,
-    #     params={"asset_cfg": SceneEntityCfg("robot", body_names=MISSING), "target_pos": (0.48284, 0.0, 0.0)},
-    # )
-
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-0.0001)
     joint_vel = RewTerm(
