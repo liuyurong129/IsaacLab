@@ -201,14 +201,25 @@ class DualArmRewardsCfg:
 
     lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.15}, weight=1.0)
 
+    # object_goal_tracking1 = RewTerm(
+    #     func=mdp.object_goal_distance1,
+    #     params={"std": 0.3, "minimal_height": 0.15, "command_name": "object_pose1"},
+    #     weight=1.0,
+    # )
+    # object_goal_tracking2 = RewTerm(
+    #     func=mdp.object_goal_distance1,
+    #     params={"std": 0.3, "minimal_height": 0.15, "command_name": "object_pose2"},
+    #     weight=1.0,
+    # )
+
     object_goal_tracking1_fine_grained = RewTerm(
         func=mdp.object_goal_distance1,
-        params={"std": 0.05, "minimal_height": 0.15, "command_name": "object_pose1"},
+        params={"std": 0.5, "minimal_height": 0.15, "command_name": "object_pose1"},
         weight=1.2,
     )
     object_goal_tracking2_fine_grained = RewTerm(
         func=mdp.object_goal_distance2,
-        params={"std": 0.05, "minimal_height": 0.15, "command_name": "object_pose2"},
+        params={"std": 0.5, "minimal_height": 0.15, "command_name": "object_pose2"},
         weight=1.2,
     )
 
@@ -226,23 +237,26 @@ class DualArmRewardsCfg:
         func=mdp.ee1_orientation_stability_reward,
         params={
             "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
-        },
-        weight=0.001,
-    )
-    ee2_orientation_stability = RewTerm(
-        func=mdp.ee2_orientation_stability_reward,
-        params={
-            "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
-        },
-        weight=0.001,
-    )
-    target_orientation_stability = RewTerm(
-        func=mdp.target_orientation_stability_reward,
-        params={
             "object_cfg": SceneEntityCfg("Box"),
         },
         weight=0.001,
     )
+    # ee2_orientation_stability = RewTerm(
+    #     func=mdp.ee2_orientation_stability_reward,
+    #     params={
+    #         "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
+    #         "object_cfg": SceneEntityCfg("Box"),
+    #     },
+    #     weight=0.0001,
+    # )
+    
+    # target_orientation_stability = RewTerm(
+    #     func=mdp.target_orientation_stability_reward,
+    #     params={
+    #         "object_cfg": SceneEntityCfg("Box"),
+    #     },
+    #     weight=0.001,
+    # )
     
     action_rate_robot = RewTerm(
         func=mdp.action_rate_l2, 

@@ -13,7 +13,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils.math import combine_frame_transforms
 from isaaclab.utils import math as math_utils
-
+import math
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
@@ -64,6 +64,72 @@ def object_ee2_distance(
     object_ee_distance = torch.norm(cube_pos_w - ee_w, dim=1)
 
     return 1 - torch.tanh(object_ee_distance / std)
+
+def object_goal_linear_reward1(
+    env: ManagerBasedRLEnv,
+    max_distance: float,
+    minimal_height: float,
+    command_name: str,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot1"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
+) -> torch.Tensor:
+    """
+    Linearly scaled reward: closer to goal → higher reward, up to max_distance.
+    No reward if object not lifted above minimal_height.
+    """
+    robot: RigidObject = env.scene[robot_cfg.name]
+    obj: RigidObject = env.scene[object_cfg.name]
+    command = env.command_manager.get_command(command_name)
+
+    # world frame goal position from relative command
+    des_pos_b = command[:, :3]
+    des_pos_w, _ = combine_frame_transforms(
+        robot.data.root_state_w[:, :3], robot.data.root_state_w[:, 3:7], des_pos_b
+    )
+
+    obj_pos_w = obj.data.root_pos_w[:, :3]
+    distance = torch.norm(des_pos_w - obj_pos_w, dim=1)
+
+    # Linearly decay reward: 1 at distance=0, 0 at distance=max_distance or beyond
+    linear_reward = 1.0 - (distance / max_distance)
+    linear_reward = torch.clamp(linear_reward, min=0.0)
+
+    # Only give reward if object is lifted above threshold
+    lifted = (obj.data.root_pos_w[:, 2] > minimal_height)
+    return lifted.float() * linear_reward
+
+def object_goal_linear_reward2(
+    env: ManagerBasedRLEnv,
+    max_distance: float,
+    minimal_height: float,
+    command_name: str,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot2"),   
+    object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
+) -> torch.Tensor:  
+    """
+    Linearly scaled reward: closer to goal → higher reward, up to max_distance.
+    No reward if object not lifted above minimal_height.
+    """
+    robot: RigidObject = env.scene[robot_cfg.name]
+    obj: RigidObject = env.scene[object_cfg.name]
+    command = env.command_manager.get_command(command_name)
+
+    # world frame goal position from relative command
+    des_pos_b = command[:, :3]
+    des_pos_w, _ = combine_frame_transforms(
+        robot.data.root_state_w[:, :3], robot.data.root_state_w[:, 3:7], des_pos_b
+    )
+
+    obj_pos_w = obj.data.root_pos_w[:, :3]
+    distance = torch.norm(des_pos_w - obj_pos_w, dim=1)
+
+    # Linearly decay reward: 1 at distance=0, 0 at distance=max_distance or beyond
+    linear_reward = 1.0 - (distance / max_distance)
+    linear_reward = torch.clamp(linear_reward, min=0.0)
+
+    # Only give reward if object is lifted above threshold
+    lifted = (obj.data.root_pos_w[:, 2] > minimal_height)
+    return lifted.float() * linear_reward
 
 
 def object_goal_distance1(
@@ -247,34 +313,62 @@ def ee1_orientation_stability_reward(
     env: ManagerBasedRLEnv,
     std: float = 0.2,
     ee1_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame1"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
 ) -> torch.Tensor:
+    object: RigidObject = env.scene[object_cfg.name]
+
+    obj_quat_current = object.data.root_quat_w
     ee1_frame: FrameTransformer = env.scene[ee1_frame_cfg.name]
     ee1_quat_current = ee1_frame.data.target_quat_w[..., 0, :]
 
-    if hasattr(env, 'initial_ee1_quat'):
-        ee1_quat_target = env.initial_ee1_quat
-    else:
-        ee1_quat_target = torch.tensor([-1.0, 0.0, 0.0, 0.0], device=ee1_quat_current.device).unsqueeze(0).expand(ee1_quat_current.shape[0], -1)
+    ee1_quat_target = obj_quat_current
 
     ee1_dot_product = torch.sum(ee1_quat_current * ee1_quat_target, dim=1).clamp(-1.0, 1.0)
     ee1_angle_diff = 2.0 * torch.acos(ee1_dot_product)
+
+    # 直接减去初始值偏差 π
+    ee1_angle_diff = ee1_angle_diff - math.pi
+    ee1_angle_diff = torch.clamp(ee1_angle_diff, min=0.0)
+
     return 1.0 - torch.tanh(ee1_angle_diff / std)
 
 def ee2_orientation_stability_reward(
     env: ManagerBasedRLEnv,
     std: float = 0.2,
     ee2_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame2"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
 ) -> torch.Tensor:
+    object: RigidObject = env.scene[object_cfg.name]
+    
+    obj_quat_current = object.data.root_quat_w
     ee2_frame: FrameTransformer = env.scene[ee2_frame_cfg.name]
     ee2_quat_current = ee2_frame.data.target_quat_w[..., 0, :]
 
-    if hasattr(env, 'initial_ee2_quat'):
-        ee2_quat_target = env.initial_ee2_quat
-    else:
-        ee2_quat_target = torch.tensor([0.0, 0.0, 0.0, -1.0], device=ee2_quat_current.device).unsqueeze(0).expand(ee2_quat_current.shape[0], -1)
-
+    # 创建绕z轴旋转180度的四元数 (0, 0, 1, 0) - 即sin(π/2)在z轴上
+    batch_size = obj_quat_current.shape[0]
+    z_rotation_180 = torch.zeros(batch_size, 4, device=obj_quat_current.device)
+    z_rotation_180[:, 2] = 1.0  # z分量 = sin(π/2) = 1
+    z_rotation_180[:, 3] = 0.0  # w分量 = cos(π/2) = 0
+    
+    q1 = obj_quat_current  # [x, y, z, w]
+    q2 = z_rotation_180    # [x, y, z, w]
+    
+    # 提取分量
+    x1, y1, z1, w1 = q1[:, 0], q1[:, 1], q1[:, 2], q1[:, 3]
+    x2, y2, z2, w2 = q2[:, 0], q2[:, 1], q2[:, 2], q2[:, 3]
+    
+    # 四元数乘法
+    ee2_quat_target = torch.stack([
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,  # x
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,  # y
+        w1*z2 + x1*y2 - y1*x2 + z1*w2,  # z
+        w1*w2 - x1*x2 - y1*y2 - z1*z2   # w
+    ], dim=1)
+    
     ee2_dot_product = torch.sum(ee2_quat_current * ee2_quat_target, dim=1).clamp(-1.0, 1.0)
     ee2_angle_diff = 2.0 * torch.acos(ee2_dot_product)
+    ee2_angle_diff = ee2_angle_diff - math.pi
+    
     return 1.0 - torch.tanh(ee2_angle_diff / std)
 
 # def ee_orientation_stability_reward(
