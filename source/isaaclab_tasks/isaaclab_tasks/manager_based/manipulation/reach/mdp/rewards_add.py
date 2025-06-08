@@ -182,7 +182,7 @@ def arm_mirror_symmetry(
     ee2_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame2"),
     object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
 ) -> torch.Tensor:
-    """Reward the agent for keeping end-effectors mirror-symmetric relative to the object center."""
+    """Reward the agent for keeping end-effectors mirror-symmetric relative to the object center in z-axis."""
     ee1_frame: FrameTransformer = env.scene[ee1_frame_cfg.name]
     ee2_frame: FrameTransformer = env.scene[ee2_frame_cfg.name]
     object: RigidObject = env.scene[object_cfg.name]
@@ -190,11 +190,9 @@ def arm_mirror_symmetry(
     ee1_pos = ee1_frame.data.target_pos_w[..., 0, :]
     ee2_pos = ee2_frame.data.target_pos_w[..., 0, :]
     obj_center = object.data.root_pos_w
-
-    # Expected to be close to 0 for symmetry
-    symmetry_error = ((ee1_pos + ee2_pos) / 2 - obj_center)
-    symmetry_dist = torch.norm(symmetry_error, dim=1)
-
+    # Only consider z-axis symmetry (index 0 for x-axis)
+    symmetry_error_z = (ee1_pos[...,0] + ee2_pos[..., 0]) / 2 - obj_center[..., 0]
+    symmetry_dist = torch.abs(symmetry_error_z)
     # Use tanh kernel for stability
     return 1.0 - torch.tanh(symmetry_dist / std)
 
@@ -308,29 +306,67 @@ def arm_mirror_symmetry(
     
 #     # 将[-1,1]映射到[0,1]，越接近-1（相反方向）奖励越高
 #     return (1.0 - force_balance) / 2.0
-
+import math
+from isaaclab.utils.math import wrap_to_pi
+def quat_to_euler_xyz(quat):
+    """
+    将四元数转换为欧拉角 (roll, pitch, yaw)
+    四元数格式: [w, x, y, z] 或 [x, y, z, w]，这里假设是 [w, x, y, z]
+    
+    Args:
+        quat: [..., 4] 四元数张量
+    
+    Returns:
+        euler: [..., 3] 欧拉角张量 [roll, pitch, yaw]
+    """
+    # 确保四元数是归一化的
+    quat = quat / torch.norm(quat, dim=-1, keepdim=True)
+    
+    w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
+    
+    # Roll (x-axis rotation)
+    sinr_cosp = 2 * (w * x + y * z)
+    cosr_cosp = 1 - 2 * (x * x + y * y)
+    roll = torch.atan2(sinr_cosp, cosr_cosp)
+    
+    # Pitch (y-axis rotation)
+    sinp = 2 * (w * y - z * x)
+    # 防止数值溢出
+    sinp = torch.clamp(sinp, -1.0, 1.0)
+    pitch = torch.asin(sinp)
+    
+    # Yaw (z-axis rotation)
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = torch.atan2(siny_cosp, cosy_cosp)
+    
+    return torch.stack([roll, pitch, yaw], dim=-1)
 def ee1_orientation_stability_reward(
     env: ManagerBasedRLEnv,
     std: float = 0.2,
     ee1_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame1"),
     object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
 ) -> torch.Tensor:
-    object: RigidObject = env.scene[object_cfg.name]
 
+    object: RigidObject = env.scene[object_cfg.name]
     obj_quat_current = object.data.root_quat_w
+    
     ee1_frame: FrameTransformer = env.scene[ee1_frame_cfg.name]
     ee1_quat_current = ee1_frame.data.target_quat_w[..., 0, :]
+    
+    # 将四元数转换为欧拉角 (roll, pitch, yaw)
+    obj_euler = quat_to_euler_xyz(obj_quat_current)  # [batch_size, 3]
+    ee1_euler = quat_to_euler_xyz(ee1_quat_current)  # [batch_size, 3]
+    
+    # 计算当前的欧拉角差异
+    current_euler_diff = ee1_euler - obj_euler
+    current_euler_diff = wrap_to_pi(current_euler_diff)
+    yaw_deviation = torch.abs(current_euler_diff[:, 2])  # yaw is the 3rd component
+    # print(f"yaw_deviation: {yaw_deviation}")
+    reward = 1.0 - torch.tanh(yaw_deviation / std)
+    
+    return reward
 
-    ee1_quat_target = obj_quat_current
-
-    ee1_dot_product = torch.sum(ee1_quat_current * ee1_quat_target, dim=1).clamp(-1.0, 1.0)
-    ee1_angle_diff = 2.0 * torch.acos(ee1_dot_product)
-
-    # 直接减去初始值偏差 π
-    ee1_angle_diff = ee1_angle_diff - math.pi
-    ee1_angle_diff = torch.clamp(ee1_angle_diff, min=0.0)
-
-    return 1.0 - torch.tanh(ee1_angle_diff / std)
 
 def ee2_orientation_stability_reward(
     env: ManagerBasedRLEnv,
@@ -338,83 +374,23 @@ def ee2_orientation_stability_reward(
     ee2_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame2"),
     object_cfg: SceneEntityCfg = SceneEntityCfg("Box"),
 ) -> torch.Tensor:
-    object: RigidObject = env.scene[object_cfg.name]
-    
+    object: RigidObject = env.scene[object_cfg.name]   
     obj_quat_current = object.data.root_quat_w
+    
     ee2_frame: FrameTransformer = env.scene[ee2_frame_cfg.name]
     ee2_quat_current = ee2_frame.data.target_quat_w[..., 0, :]
 
-    # 创建绕z轴旋转180度的四元数 (0, 0, 1, 0) - 即sin(π/2)在z轴上
-    batch_size = obj_quat_current.shape[0]
-    z_rotation_180 = torch.zeros(batch_size, 4, device=obj_quat_current.device)
-    z_rotation_180[:, 2] = 1.0  # z分量 = sin(π/2) = 1
-    z_rotation_180[:, 3] = 0.0  # w分量 = cos(π/2) = 0
-    
-    q1 = obj_quat_current  # [x, y, z, w]
-    q2 = z_rotation_180    # [x, y, z, w]
-    
-    # 提取分量
-    x1, y1, z1, w1 = q1[:, 0], q1[:, 1], q1[:, 2], q1[:, 3]
-    x2, y2, z2, w2 = q2[:, 0], q2[:, 1], q2[:, 2], q2[:, 3]
-    
-    # 四元数乘法
-    ee2_quat_target = torch.stack([
-        w1*x2 + x1*w2 + y1*z2 - z1*y2,  # x
-        w1*y2 - x1*z2 + y1*w2 + z1*x2,  # y
-        w1*z2 + x1*y2 - y1*x2 + z1*w2,  # z
-        w1*w2 - x1*x2 - y1*y2 - z1*z2   # w
-    ], dim=1)
-    
-    ee2_dot_product = torch.sum(ee2_quat_current * ee2_quat_target, dim=1).clamp(-1.0, 1.0)
-    ee2_angle_diff = 2.0 * torch.acos(ee2_dot_product)
-    ee2_angle_diff = ee2_angle_diff - math.pi
-    
-    return 1.0 - torch.tanh(ee2_angle_diff / std)
+    obj_euler = quat_to_euler_xyz(obj_quat_current)  # [batch_size, 3]
+    ee2_euler = quat_to_euler_xyz(ee2_quat_current)  # [batch_size, 3]
+    current_euler_diff = ee2_euler - obj_euler
+    current_euler_diff = wrap_to_pi(current_euler_diff)
 
-# def ee_orientation_stability_reward(
-#     env: ManagerBasedRLEnv,
-#     std: float = 0.2,
-#     ee1_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame1"),
-#     ee2_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame2"),
-# ) -> torch.Tensor:
-#     """新增：奖励两个末端执行器保持初始orientation不变的行为"""
-#     ee1_frame: FrameTransformer = env.scene[ee1_frame_cfg.name]
-#     ee2_frame: FrameTransformer = env.scene[ee2_frame_cfg.name]
+    yaw_deviation = torch.abs(current_euler_diff[:, 2]-math.pi)  # yaw is the 3rd component
+    # print(f"yaw_deviation: {yaw_deviation}")
+    reward = 1.0 - torch.tanh(yaw_deviation / std)
     
-#     # 获取当前末端执行器的四元数姿态 (num_envs, 4)
-#     ee1_quat_current = ee1_frame.data.target_quat_w[..., 0, :]
-#     ee2_quat_current = ee2_frame.data.target_quat_w[..., 0, :]
-    
-#     # print(f"ee1_quat_current: {ee1_quat_current}, ee2_quat_current: {ee2_quat_current}")
-#     # 获取初始目标姿态（假设在环境初始化时存储）
-#     if hasattr(env, 'initial_ee1_quat'):
-#         ee1_quat_target = env.initial_ee1_quat
-#     else:
-#         # 默认使用单位四元数 [0, 0, 0, 1] (w, x, y, z format)
-#         ee1_quat_target = torch.tensor([-1.0, 0.0, 0.0, 0.0], device=ee1_quat_current.device).unsqueeze(0).expand(ee1_quat_current.shape[0], -1)
-    
-#     if hasattr(env, 'initial_ee2_quat'):
-#         ee2_quat_target = env.initial_ee2_quat
-#     else:
-#         # 默认使用单位四元数
-#         ee2_quat_target = torch.tensor([0.0, 0.0, 0.0, -1.0], device=ee2_quat_current.device).unsqueeze(0).expand(ee2_quat_current.shape[0], -1)
-    
-    
-#     # 计算四元数之间的角度差异
-#     # 使用四元数点积来计算角度差
-#     ee1_dot_product = torch.sum(ee1_quat_current * ee1_quat_target, dim=1)
-#     ee2_dot_product = torch.sum(ee2_quat_current * ee2_quat_target, dim=1)
+    return reward
 
-#     # 计算角度差异（弧度）
-#     ee1_angle_diff = 2.0 * torch.acos(ee1_dot_product)
-#     ee2_angle_diff = 2.0 * torch.acos(ee2_dot_product)
-
-#     # 使用tanh核函数计算奖励，角度差异越小奖励越高
-#     ee1_orientation_reward = 1.0 - torch.tanh(ee1_angle_diff / std)
-#     ee2_orientation_reward = 1.0 - torch.tanh(ee2_angle_diff / std)
-    
-#     # 返回两个末端执行器orientation稳定性的平均奖励
-#     return (ee1_orientation_reward + ee2_orientation_reward) / 2.0
 
 def target_orientation_stability_reward(
     env: ManagerBasedRLEnv,

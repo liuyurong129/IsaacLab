@@ -76,8 +76,8 @@ class DualArmReachSceneCfg(InteractiveSceneCfg):
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0)),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.235, 0.0, 0.15),
-            rot=(0.0, 0.0, 0.0, 1.0),
+            pos=(0.235, 0.0, -0.85),
+            rot=(0.0, 0.0, 0.0, 1),
         ),
     )
 
@@ -199,27 +199,27 @@ class DualArmRewardsCfg:
     reaching_object1 = RewTerm(func=mdp.object_ee1_distance, params={"std": 0.1}, weight=1.0)
     reaching_object2 = RewTerm(func=mdp.object_ee2_distance, params={"std": 0.1}, weight=1.0)
 
-    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.15}, weight=1.0)
+    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.11}, weight=1)
 
-    # object_goal_tracking1 = RewTerm(
+    # object_goal_tracking1_fine_grained = RewTerm(
     #     func=mdp.object_goal_distance1,
-    #     params={"std": 0.3, "minimal_height": 0.15, "command_name": "object_pose1"},
-    #     weight=1.0,
+    #     params={"std": 0.05, "minimal_height": 0.11, "command_name": "object_pose1"},
+    #     weight=1.2,
     # )
-    # object_goal_tracking2 = RewTerm(
-    #     func=mdp.object_goal_distance1,
-    #     params={"std": 0.3, "minimal_height": 0.15, "command_name": "object_pose2"},
-    #     weight=1.0,
+    # object_goal_tracking2_fine_grained = RewTerm(
+    #     func=mdp.object_goal_distance2,
+    #     params={"std": 0.05, "minimal_height": 0.11, "command_name": "object_pose2"},
+    #     weight=1.2,
     # )
 
-    object_goal_tracking1_fine_grained = RewTerm(
+    object_goal_tracking1 = RewTerm(
         func=mdp.object_goal_distance1,
-        params={"std": 0.5, "minimal_height": 0.15, "command_name": "object_pose1"},
+        params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose1"},
         weight=1.2,
     )
-    object_goal_tracking2_fine_grained = RewTerm(
+    object_goal_tracking2 = RewTerm(
         func=mdp.object_goal_distance2,
-        params={"std": 0.5, "minimal_height": 0.15, "command_name": "object_pose2"},
+        params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose2"},
         weight=1.2,
     )
 
@@ -231,16 +231,16 @@ class DualArmRewardsCfg:
             "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
             "object_cfg": SceneEntityCfg("Box"),
         },
-        weight=0.001,
+        weight=0.0001,
     )
-    ee1_orientation_stability = RewTerm(
-        func=mdp.ee1_orientation_stability_reward,
-        params={
-            "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
-            "object_cfg": SceneEntityCfg("Box"),
-        },
-        weight=0.001,
-    )
+    # ee1_orientation_stability = RewTerm(
+    #     func=mdp.ee1_orientation_stability_reward,
+    #     params={
+    #         "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
+    #         "object_cfg": SceneEntityCfg("Box"),
+    #     },
+    #     weight=0.0001,
+    # )
     # ee2_orientation_stability = RewTerm(
     #     func=mdp.ee2_orientation_stability_reward,
     #     params={
@@ -322,8 +322,13 @@ class DualArmReachEnvCfg(ManagerBasedRLEnvCfg):
         """Post initialization."""
         # general settings
         self.decimation = 2
-        self.sim.render_interval = self.decimation
-        self.episode_length_s = 12.0
-        self.viewer.eye = (3.5, 3.5, 3.5)
+        self.episode_length_s = 5.0
         # simulation settings
-        self.sim.dt = 1.0 / 200.0
+        self.sim.dt = 0.01  # 100Hz
+        self.sim.render_interval = self.decimation
+
+        self.sim.physx.bounce_threshold_velocity = 0.2
+        self.sim.physx.bounce_threshold_velocity = 0.01
+        self.sim.physx.gpu_found_lost_aggregate_pairs_capacity = 1024 * 1024 * 4
+        self.sim.physx.gpu_total_aggregate_pairs_capacity = 16 * 1024
+        self.sim.physx.friction_correlation_distance = 0.00625
