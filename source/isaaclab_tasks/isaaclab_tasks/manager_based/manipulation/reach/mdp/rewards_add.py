@@ -443,3 +443,119 @@ def target_orientation_stability_reward(
     
 #     # 加权组合两个奖励
 #     return ee_weight * ee_stability + target_weight * target_stability
+
+
+def end_effector_velocity_reward(
+    env: ManagerBasedRLEnv,
+    target_velocity: float = 5,
+    std: float = 0.2,
+    ee1_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame1"),
+    ee2_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame2"),
+) -> torch.Tensor:
+    """奖励末端执行器保持适当的运动速度 - 使用环境内置状态管理"""
+    ee1_frame: FrameTransformer = env.scene[ee1_frame_cfg.name]
+    ee2_frame: FrameTransformer = env.scene[ee2_frame_cfg.name]
+    
+    # 获取当前位置
+    ee1_pos = ee1_frame.data.target_pos_w[..., 0, :]
+    ee2_pos = ee2_frame.data.target_pos_w[..., 0, :]
+    
+    # 使用环境的历史缓存（如果可用）
+    if hasattr(env, 'episode_length_buf') and hasattr(env, 'reset_buf'):
+        # 检查是否是第一步或刚重置
+        is_first_step = (env.episode_length_buf == 0) | env.reset_buf.bool()
+        if is_first_step.any():
+            return torch.zeros(ee1_pos.shape[0], device=ee1_pos.device)
+    
+    # 方法1: 使用有限差分近似速度（基于dt）
+    # 这种方法不需要存储历史状态，但精度较低
+    dt = env.step_dt if hasattr(env, 'step_dt') else 0.02  # 默认50Hz
+    
+    # 从FrameTransformer或RigidObject获取速度（如果可用）
+    if hasattr(ee1_frame.data, 'target_vel_w'):
+        ee1_velocity_mag = torch.norm(ee1_frame.data.target_vel_w[..., 0, :], dim=1)
+        ee2_velocity_mag = torch.norm(ee2_frame.data.target_vel_w[..., 0, :], dim=1)
+    else:
+        # 备选方案：估算速度（不太准确但避免状态存储）
+        return torch.zeros(ee1_pos.shape[0], device=ee1_pos.device)
+    # 奖励接近目标速度的运动
+    ee1_reward = 1.0 - torch.tanh(torch.abs(ee1_velocity_mag - target_velocity) / std)
+    ee2_reward = 1.0 - torch.tanh(torch.abs(ee2_velocity_mag - target_velocity) / std)
+    
+    return (ee1_reward + ee2_reward) / 2.0
+
+
+def action_magnitude_reward(
+    env: ManagerBasedRLEnv,
+    scale: float = 0.1,
+    max_action: float = 10,
+) -> torch.Tensor:
+    """奖励较大的动作幅度（鼓励快速运动）- 最简单可靠的方法"""
+    # 获取当前动作
+    actions = env.action_manager.action
+
+    # 计算动作的L2范数并归一化
+    action_magnitude = torch.norm(actions, dim=1) / max_action
+    action_magnitude = torch.clamp(action_magnitude, 0.0, 1.0)
+    
+    # 线性奖励：动作幅度越大奖励越高
+    return action_magnitude * scale
+
+
+def joint_velocity_reward(
+    env: ManagerBasedRLEnv,
+    target_velocity: float = 3.14,
+    std: float = 0.5,
+    robot1_cfg: SceneEntityCfg = SceneEntityCfg("robot1"),
+    robot2_cfg: SceneEntityCfg = SceneEntityCfg("robot2"),
+) -> torch.Tensor:
+    """奖励关节保持适当的运动速度 - 使用内置关节速度"""
+    robot1 = env.scene[robot1_cfg.name]
+    robot2 = env.scene[robot2_cfg.name]
+    
+    # 获取关节速度（这是内置的，不需要手动计算）
+    joint_vel1 = robot1.data.joint_vel
+    joint_vel2 = robot2.data.joint_vel
+    
+    # 计算平均关节速度大小
+    vel_magnitude1 = torch.mean(torch.abs(joint_vel1), dim=1)
+    vel_magnitude2 = torch.mean(torch.abs(joint_vel2), dim=1)
+    # 使用tanh核函数奖励接近目标速度的运动
+    reward1 = 1.0 - torch.tanh(torch.abs(vel_magnitude1 - target_velocity) / std)
+    reward2 = 1.0 - torch.tanh(torch.abs(vel_magnitude2 - target_velocity) / std)
+    
+    return (reward1 + reward2) / 2.0
+
+def large_motion_reward(
+    env: ManagerBasedRLEnv,
+    min_velocity_threshold: float = 1.0,  # 最小速度阈值，低于此值不给奖励
+    scale: float = 1.0,
+    power: float = 2.0,  # 幂次，越大越奖励高速运动
+    robot1_cfg: SceneEntityCfg = SceneEntityCfg("robot1"),
+    robot2_cfg: SceneEntityCfg = SceneEntityCfg("robot2"),
+) -> torch.Tensor:
+    """只奖励大幅运动，避免抖动 - 使用阈值和幂函数"""
+    robot1 = env.scene[robot1_cfg.name]
+    robot2 = env.scene[robot2_cfg.name]
+    
+    joint_vel1 = robot1.data.joint_vel
+    joint_vel2 = robot2.data.joint_vel
+    
+    # 计算RMS速度（比平均绝对值更能反映整体运动强度）
+    vel_rms1 = torch.sqrt(torch.mean(joint_vel1 ** 2, dim=1))
+    vel_rms2 = torch.sqrt(torch.mean(joint_vel2 ** 2, dim=1))
+    
+    # 只有超过阈值的运动才给奖励
+    reward1 = torch.where(
+        vel_rms1 > min_velocity_threshold,
+        torch.pow((vel_rms1 - min_velocity_threshold) / min_velocity_threshold, power),
+        torch.zeros_like(vel_rms1)
+    )
+
+    reward2 = torch.where(
+        vel_rms2 > min_velocity_threshold,
+        torch.pow((vel_rms2 - min_velocity_threshold) / min_velocity_threshold, power),
+        torch.zeros_like(vel_rms2)
+    )
+    
+    return scale * (reward1 + reward2) / 2.0

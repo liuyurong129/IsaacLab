@@ -151,20 +151,20 @@ class DualArmObservationsCfg:
             noise=Unoise(n_min=-0.01, n_max=0.01)
         )
         # 末端执行器相对姿态
-        ee1_relative_pose = ObsTerm(
-            func=mdp.ee1_orientation_in_world_frame,
-            params={
-            "ee_frame_cfg": SceneEntityCfg("ee_frame1"),
-            },
-            noise=Unoise(n_min=-0.01, n_max=0.01)
-        )
-        ee2_relative_pose = ObsTerm(
-            func=mdp.ee2_orientation_in_world_frame,
-            params={
-            "ee_frame_cfg": SceneEntityCfg("ee_frame2"),
-            },
-            noise=Unoise(n_min=-0.01, n_max=0.01)
-        )
+        # ee1_relative_pose = ObsTerm(
+        #     func=mdp.ee1_orientation_in_world_frame,
+        #     params={
+        #     "ee_frame_cfg": SceneEntityCfg("ee_frame1"),
+        #     },
+        #     noise=Unoise(n_min=-0.01, n_max=0.01)
+        # )
+        # ee2_relative_pose = ObsTerm(
+        #     func=mdp.ee2_orientation_in_world_frame,
+        #     params={
+        #     "ee_frame_cfg": SceneEntityCfg("ee_frame2"),
+        #     },
+        #     noise=Unoise(n_min=-0.01, n_max=0.01)
+        # )
         # 箱子状态（核心观察）
         object_position = ObsTerm(func=mdp.object_pose_in_robot_root_frame)
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose1"})
@@ -191,6 +191,28 @@ class DualArmEventCfg:
             "asset_cfg": SceneEntityCfg("Box", body_names="Box"),
         },
     )
+    # robot1_joint_stiffness_and_damping = EventTerm(
+    #   func=mdp.randomize_actuator_gains,
+    #   mode="reset",
+    #   params={
+    #       "asset_cfg": SceneEntityCfg("robot1", joint_names=".*"),
+    #       "stiffness_distribution_params": (0.75, 1.5),
+    #       "damping_distribution_params": (0.3, 3.0),
+    #       "operation": "scale",
+    #       "distribution": "log_uniform",
+    #   },
+    # )
+    # robot2_joint_stiffness_and_damping = EventTerm(
+    #   func=mdp.randomize_actuator_gains,
+    #   mode="reset",
+    #   params={
+    #       "asset_cfg": SceneEntityCfg("robot2", joint_names=".*"),
+    #       "stiffness_distribution_params": (0.75, 1.5),
+    #       "damping_distribution_params": (0.3, 3.0),
+    #       "operation": "scale",
+    #       "distribution": "log_uniform",
+    #   },
+    # )
 
 @configclass
 class DualArmRewardsCfg:
@@ -215,12 +237,12 @@ class DualArmRewardsCfg:
     object_goal_tracking1 = RewTerm(
         func=mdp.object_goal_distance1,
         params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose1"},
-        weight=1.2,
+        weight=2.5,
     )
     object_goal_tracking2 = RewTerm(
         func=mdp.object_goal_distance2,
         params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose2"},
-        weight=1.2,
+        weight=2.5,
     )
 
     arm_symmetry = RewTerm(
@@ -231,7 +253,35 @@ class DualArmRewardsCfg:
             "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
             "object_cfg": SceneEntityCfg("Box"),
         },
-        weight=0.0001,
+        weight=0.001,
+    )
+    # end_effector_velocity = RewTerm(
+    #     func=mdp.end_effector_velocity_reward,
+    #     params={
+    #         "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
+    #         "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
+    #     },
+    #     weight=1000,
+    # )
+    joint_velocity = RewTerm(
+        func=mdp.joint_velocity_reward,
+        params={
+            "robot1_cfg": SceneEntityCfg("robot1"),
+            "robot2_cfg": SceneEntityCfg("robot2"),
+        },
+        weight=1000,
+    )
+    large_motion = RewTerm(
+        func=mdp.large_motion_reward,
+        params={
+            "robot1_cfg": SceneEntityCfg("robot1"),
+            "robot2_cfg": SceneEntityCfg("robot2"),
+        },
+        weight=1,
+    )
+    action_magnitude = RewTerm(
+        func=mdp.action_magnitude_reward,
+        weight=0.1,
     )
     # ee1_orientation_stability = RewTerm(
     #     func=mdp.ee1_orientation_stability_reward,
@@ -239,7 +289,7 @@ class DualArmRewardsCfg:
     #         "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
     #         "object_cfg": SceneEntityCfg("Box"),
     #     },
-    #     weight=0.0001,
+    #     weight=0.001,
     # )
     # ee2_orientation_stability = RewTerm(
     #     func=mdp.ee2_orientation_stability_reward,
