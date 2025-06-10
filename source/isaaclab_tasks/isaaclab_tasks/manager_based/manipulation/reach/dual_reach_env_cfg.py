@@ -151,20 +151,20 @@ class DualArmObservationsCfg:
             noise=Unoise(n_min=-0.01, n_max=0.01)
         )
         # 末端执行器相对姿态
-        # ee1_relative_pose = ObsTerm(
-        #     func=mdp.ee1_orientation_in_world_frame,
-        #     params={
-        #     "ee_frame_cfg": SceneEntityCfg("ee_frame1"),
-        #     },
-        #     noise=Unoise(n_min=-0.01, n_max=0.01)
-        # )
-        # ee2_relative_pose = ObsTerm(
-        #     func=mdp.ee2_orientation_in_world_frame,
-        #     params={
-        #     "ee_frame_cfg": SceneEntityCfg("ee_frame2"),
-        #     },
-        #     noise=Unoise(n_min=-0.01, n_max=0.01)
-        # )
+        ee1_relative_pose = ObsTerm(
+            func=mdp.ee1_orientation_in_world_frame,
+            params={
+            "ee_frame_cfg": SceneEntityCfg("ee_frame1"),
+            },
+            noise=Unoise(n_min=-0.01, n_max=0.01)
+        )
+        ee2_relative_pose = ObsTerm(
+            func=mdp.ee2_orientation_in_world_frame,
+            params={
+            "ee_frame_cfg": SceneEntityCfg("ee_frame2"),
+            },
+            noise=Unoise(n_min=-0.01, n_max=0.01)
+        )
         # 箱子状态（核心观察）
         object_position = ObsTerm(func=mdp.object_pose_in_robot_root_frame)
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose1"})
@@ -221,7 +221,7 @@ class DualArmRewardsCfg:
     reaching_object1 = RewTerm(func=mdp.object_ee1_distance, params={"std": 0.1}, weight=1.0)
     reaching_object2 = RewTerm(func=mdp.object_ee2_distance, params={"std": 0.1}, weight=1.0)
 
-    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.11}, weight=1)
+    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.11}, weight=2)
 
     # object_goal_tracking1_fine_grained = RewTerm(
     #     func=mdp.object_goal_distance1,
@@ -237,12 +237,12 @@ class DualArmRewardsCfg:
     object_goal_tracking1 = RewTerm(
         func=mdp.object_goal_distance1,
         params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose1"},
-        weight=2.5,
+        weight=10,
     )
     object_goal_tracking2 = RewTerm(
         func=mdp.object_goal_distance2,
         params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose2"},
-        weight=2.5,
+        weight=10,
     )
 
     arm_symmetry = RewTerm(
@@ -269,7 +269,7 @@ class DualArmRewardsCfg:
             "robot1_cfg": SceneEntityCfg("robot1"),
             "robot2_cfg": SceneEntityCfg("robot2"),
         },
-        weight=1000,
+        weight=2000,
     )
     large_motion = RewTerm(
         func=mdp.large_motion_reward,
@@ -277,7 +277,7 @@ class DualArmRewardsCfg:
             "robot1_cfg": SceneEntityCfg("robot1"),
             "robot2_cfg": SceneEntityCfg("robot2"),
         },
-        weight=1,
+        weight=20,
     )
     action_magnitude = RewTerm(
         func=mdp.action_magnitude_reward,
