@@ -1,0 +1,82 @@
+params:
+  seed: 42
+
+  # environment wrapper clipping
+  env:
+    clip_observations: 10.0  # 大幅降低观测值裁剪范围
+    clip_actions: 1.0        # 大幅降低动作裁剪范围
+
+  algo:
+    name: a2c_continuous
+
+  model:
+    name: continuous_a2c_logstd
+
+  network:
+    name: actor_critic
+    separate: False
+    space:
+      continuous:
+        mu_activation: None
+        sigma_activation: None
+
+        mu_init:
+          name: orthogonal_initializer  # 使用更稳定的初始化
+          gain: 0.01                   # 小的初始化增益
+        sigma_init:
+          name: const_initializer
+          val: -2.0                    # 更保守的初始sigma
+        fixed_sigma: True
+    mlp:
+      units: [128, 64, 32]            # 减小网络规模防止过拟合
+      activation: elu
+      d2rl: False
+
+      initializer:
+        name: orthogonal_initializer   # 使用正交初始化
+        gain: 0.5                     # 较小的增益
+      regularizer:
+        name: l2_regularizer          # 添加L2正则化
+        scale: 0.001
+
+  load_checkpoint: False # flag which sets whether to load the checkpoint
+  load_path: '' # path to the checkpoint to load
+
+  config:
+    name: dual_airbot
+    env_name: rlgpu
+    device: 'cuda:0'
+    device_name: 'cuda:0'
+    multi_gpu: False
+    ppo: True
+    mixed_precision: False
+    normalize_input: True
+    normalize_value: True
+    value_bootstrap: False
+    num_actors: -1
+    reward_shaper:
+      scale_value: 0.1              # 大幅缩放奖励避免数值爆炸
+    normalize_advantage: True
+    gamma: 0.99
+    tau: 0.95
+    learning_rate: 3e-5             # 适中的学习率
+    lr_schedule: adaptive
+    schedule_type: legacy
+    kl_threshold: 0.008             # 更严格的KL散度阈值
+    score_to_win: 100000000
+    max_epochs: 1500
+    save_best_after: 50
+    save_frequency: 25              # 适中的保存频率
+    print_stats: True
+    grad_norm: 0.5                  # 适中的梯度裁剪
+    entropy_coef: 0.005             # 降低熵系数
+    truncate_grads: True
+    e_clip: 0.2                     # 标准的PPO裁剪值
+    horizon_length: 24
+    minibatch_size: 12288           # 减小批次大小
+    mini_epochs: 4                  # 适中的mini_epochs
+    critic_coef: 1.0                # 标准的critic系数
+    clip_value: True
+    clip_actions: True              # 启用动作裁剪
+    seq_len: 4
+    bounds_loss_coef: 0.0001

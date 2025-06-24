@@ -63,6 +63,7 @@ from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
+log_file = open("log.txt", "w")
 
 def main():
     """Play with RSL-RL agent."""
@@ -146,8 +147,11 @@ def main():
         with torch.inference_mode():
             # agent stepping
             actions = policy(obs)
+            log_file.write(f"\ntimestep {timestep}\n")
+            log_file.write(f"env1 actions: {actions[0].cpu().numpy()}\n")
             # env stepping
             obs, _, _, _ = env.step(actions)
+            log_file.write(f"env1 obs: {obs[0].cpu().numpy()}\n")
         if args_cli.video:
             timestep += 1
             # Exit the play loop after recording one video

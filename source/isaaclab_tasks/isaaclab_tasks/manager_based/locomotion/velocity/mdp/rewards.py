@@ -80,6 +80,11 @@ def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = Scen
 
     body_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2]
     reward = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
+    # # 获取关节信息
+    # joint_names = asset.data.joint_names
+    # print("关节名称:")
+    # for i, name in enumerate(joint_names):
+    #     print(f"{i:2d}: {name}")
     return reward
 
 

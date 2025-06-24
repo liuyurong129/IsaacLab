@@ -54,7 +54,6 @@ def object_pose_in_robot_root_frame(
     
     # Concatenate position and orientation
     object_pose_b = torch.cat([object_pos_b, object_quat_b], dim=-1)
-    
     return object_pose_b
 
 def ee_orientation_in_world_frame(

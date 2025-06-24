@@ -63,23 +63,51 @@ class DualArmReachSceneCfg(InteractiveSceneCfg):
 
     Box = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Box",
-        spawn=sim_utils.CuboidCfg(  # 仍然用 CuboidCfg 定义几何和物理属性
-            size=(0.15, 0.11, 0.22),
+        spawn=sim_utils.CuboidCfg( 
+            size=(0.07,0.21,0.22),
+            physics_material=sim_utils.RigidBodyMaterialCfg(
+                friction_combine_mode="multiply",
+                static_friction=5.0,
+                dynamic_friction=5.0,
+                restitution=0.0,
+            ),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+            mass_props=sim_utils.MassPropertiesCfg(mass=1.2129),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0)),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(
+            pos=(0.345, 0.0, -0.75),
+            rot=(0.0, 0.0, 0.0, 1),
+        ),
+    )
+
+    Box2 = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/Box2",
+        spawn=sim_utils.CuboidCfg(  
+            size=(0.21,0.22,0.14),
             physics_material=sim_utils.RigidBodyMaterialCfg(
                 static_friction=1.0,
                 dynamic_friction=1.0,
                 restitution=0.0,
             ),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.65361),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                kinematic_enabled=True,  # 设置为运动学体，固定不动
+                disable_gravity=True,    # 禁用重力影响
+            ),
+            mass_props=sim_utils.MassPropertiesCfg(mass=100),
             collision_props=sim_utils.CollisionPropertiesCfg(),
-            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0)),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.0, 0.0, 0.0),  # 改为黑色 (R=0, G=0, B=0)
+                metallic=0.0,     # 可选：设置金属度
+                roughness=0.5,    # 可选：设置粗糙度
+            ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.235, 0.0, -0.85),
+            pos=(0.345, 0.0, 0.07),
             rot=(0.0, 0.0, 0.0, 1),
         ),
-    )
+)
 
 
 
@@ -97,7 +125,7 @@ class DualArmCommandsCfg:
         resampling_time_range=(5.0, 5.0),
         debug_vis=True,
         ranges=mdp.UniformPoseCommandCfg.Ranges(
-            pos_x=(0.235, 0.235), pos_y=(0.0, 0.0), pos_z=(0.5, 0.5), roll=(0.0, 0.0), pitch=(0.0, 0.0), yaw=(0.0, 0.0)
+            pos_x=(0,0), pos_y=(-0.345, -0.345), pos_z=(0.5, 0.5), roll=(0.0, 0.0), pitch=(0.0, 0.0), yaw=(-math.pi/2, -math.pi/2)
         ),
     )
     object_pose2 = mdp.UniformPoseCommandCfg(
@@ -106,7 +134,7 @@ class DualArmCommandsCfg:
         resampling_time_range=(5.0, 5.0),
         debug_vis=True,
         ranges=mdp.UniformPoseCommandCfg.Ranges(
-            pos_x=(0.235, 0.235), pos_y=(0.0, 0.0), pos_z=(0.5, 0.5), roll=(0.0, 0.0), pitch=(0.0, 0.0), yaw=(math.pi, math.pi)
+            pos_x=(0,0), pos_y=(0.345, 0.345), pos_z=(0.5, 0.5), roll=(0.0, 0.0), pitch=(0.0, 0.0), yaw=(-math.pi/2, -math.pi/2)
         ),
     )
 
@@ -166,7 +194,7 @@ class DualArmObservationsCfg:
             noise=Unoise(n_min=-0.01, n_max=0.01)
         )
         # 箱子状态（核心观察）
-        # object_position = ObsTerm(func=mdp.object_pose_in_robot_root_frame)
+        object_position = ObsTerm(func=mdp.object_pose_in_robot_root_frame)
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose1"})
         last_actions = ObsTerm(func=mdp.last_action)
 
@@ -189,6 +217,17 @@ class DualArmEventCfg:
             "pose_range": {"x": (0.235,0.235), "y": (0.0, 0.0), "z": (0.15, 0.15),"w": (0.0, 0.0),"x": (0.0, 0.0), "y": (0,0), "z": (1, 1)},
             "velocity_range": {},
             "asset_cfg": SceneEntityCfg("Box", body_names="Box"),
+        },
+    )
+    object_physics_material = EventTerm(
+        func=mdp.randomize_rigid_body_material,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("Box", body_names="Box"),
+            "static_friction_range": (4.5, 5.5),
+            "dynamic_friction_range": (4.5, 5.5),
+            "restitution_range": (0.0, 0.0),
+            "num_buckets": 250,
         },
     )
     # robot1_joint_stiffness_and_damping = EventTerm(
@@ -221,7 +260,7 @@ class DualArmRewardsCfg:
     reaching_object1 = RewTerm(func=mdp.object_ee1_distance, params={"std": 0.1}, weight=1.0)
     reaching_object2 = RewTerm(func=mdp.object_ee2_distance, params={"std": 0.1}, weight=1.0)
 
-    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.11}, weight=2)
+    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.25}, weight=2)
 
     # object_goal_tracking1_fine_grained = RewTerm(
     #     func=mdp.object_goal_distance1,
@@ -236,12 +275,12 @@ class DualArmRewardsCfg:
 
     object_goal_tracking1 = RewTerm(
         func=mdp.object_goal_distance1,
-        params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose1"},
+        params={"std": 0.3, "minimal_height": 0.25, "command_name": "object_pose1"},
         weight=10,
     )
     object_goal_tracking2 = RewTerm(
         func=mdp.object_goal_distance2,
-        params={"std": 0.3, "minimal_height": 0.11, "command_name": "object_pose2"},
+        params={"std": 0.3, "minimal_height": 0.25, "command_name": "object_pose2"},
         weight=10,
     )
 
@@ -269,7 +308,7 @@ class DualArmRewardsCfg:
             "robot1_cfg": SceneEntityCfg("robot1"),
             "robot2_cfg": SceneEntityCfg("robot2"),
         },
-        weight=2000,
+        weight=2,
     )
     large_motion = RewTerm(
         func=mdp.large_motion_reward,
@@ -277,7 +316,7 @@ class DualArmRewardsCfg:
             "robot1_cfg": SceneEntityCfg("robot1"),
             "robot2_cfg": SceneEntityCfg("robot2"),
         },
-        weight=20,
+        weight=2,
     )
     action_magnitude = RewTerm(
         func=mdp.action_magnitude_reward,
@@ -300,13 +339,13 @@ class DualArmRewardsCfg:
     #     weight=0.0001,
     # )
     
-    # target_orientation_stability = RewTerm(
-    #     func=mdp.target_orientation_stability_reward,
-    #     params={
-    #         "object_cfg": SceneEntityCfg("Box"),
-    #     },
-    #     weight=0.001,
-    # )
+    target_orientation_stability = RewTerm(
+        func=mdp.target_orientation_stability_reward,
+        params={
+            "object_cfg": SceneEntityCfg("Box"),
+        },
+        weight=0.001,
+    )
     
     action_rate_robot = RewTerm(
         func=mdp.action_rate_l2, 
@@ -380,5 +419,5 @@ class DualArmReachEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.physx.bounce_threshold_velocity = 0.2
         self.sim.physx.bounce_threshold_velocity = 0.01
         self.sim.physx.gpu_found_lost_aggregate_pairs_capacity = 1024 * 1024 * 4
-        self.sim.physx.gpu_total_aggregate_pairs_capacity = 16 * 1024
+        self.sim.physx.gpu_total_aggregate_pairs_capacity = 40 * 1024
         self.sim.physx.friction_correlation_distance = 0.00625

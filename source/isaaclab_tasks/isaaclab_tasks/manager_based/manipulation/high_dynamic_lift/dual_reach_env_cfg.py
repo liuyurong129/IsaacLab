@@ -265,16 +265,16 @@ class DualArmRewardsCfg:
 
     action_rate_robot = RewTerm(
         func=mdp.action_rate_l2, 
-        weight=-1e-4,
+        weight=-1e-6,
     )
     joint_vel_robot1 = RewTerm(
         func=mdp.joint_vel_l2, 
-        weight=-1e-4,
+        weight=-1e-6,
         params={"asset_cfg": SceneEntityCfg("robot1")}
     )
     joint_vel_robot2 = RewTerm(
         func=mdp.joint_vel_l2, 
-        weight=-1e-4,
+        weight=-1e-6,
         params={"asset_cfg": SceneEntityCfg("robot2")}
     )
 
@@ -283,13 +283,13 @@ class DualArmRewardsCfg:
     #     weight=1.0,
     # )
 
-    # target_orientation_stability = RewTerm(
-    #     func=mdp.target_orientation_stability_reward,
-    #     params={
-    #         "object_cfg": SceneEntityCfg("Box"),
-    #     },
-    #     weight=0.01,
-    # )
+    target_orientation_stability = RewTerm(
+        func=mdp.target_orientation_stability_reward,
+        params={
+            "object_cfg": SceneEntityCfg("Box"),
+        },
+        weight=1,
+    )
     # ee1_orientation_stability = RewTerm(
     #     func=mdp.ee1_orientation_stability_reward,
     #     params={
@@ -373,7 +373,7 @@ class DualArmReachEnvCfg(ManagerBasedRLEnvCfg):
     terminations: DualArmTerminationsCfg = DualArmTerminationsCfg()
     events: DualArmEventCfg = DualArmEventCfg()
     curriculum: DualArmCurriculumCfg = DualArmCurriculumCfg()
-
+    
     def __post_init__(self):
         """Post initialization."""
         # general settings
