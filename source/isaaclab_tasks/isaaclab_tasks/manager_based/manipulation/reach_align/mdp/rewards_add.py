@@ -357,11 +357,12 @@ def ee1_orientation_stability_reward(
     # 将四元数转换为欧拉角 (roll, pitch, yaw)
     obj_euler = quat_to_euler_xyz(obj_quat_current)  # [batch_size, 3]
     ee1_euler = quat_to_euler_xyz(ee1_quat_current)  # [batch_size, 3]
-    
+    # print(f"obj_euler: {obj_euler}")
+    # print(f"ee1_euler: {ee1_euler}")
     # 计算当前的欧拉角差异
     current_euler_diff = ee1_euler - obj_euler
     current_euler_diff = wrap_to_pi(current_euler_diff)
-    yaw_deviation = torch.abs(current_euler_diff[:, 2])  # yaw is the 3rd component
+    yaw_deviation = torch.abs(current_euler_diff[:, 2]+math.pi)  # yaw is the 3rd component
     # print(f"yaw_deviation: {yaw_deviation}")
     reward = 1.0 - torch.tanh(yaw_deviation / std)
     
@@ -382,10 +383,12 @@ def ee2_orientation_stability_reward(
 
     obj_euler = quat_to_euler_xyz(obj_quat_current)  # [batch_size, 3]
     ee2_euler = quat_to_euler_xyz(ee2_quat_current)  # [batch_size, 3]
+    # print(f"obj_euler: {obj_euler}")
+    # print(f"ee2_euler: {ee2_euler}")
     current_euler_diff = ee2_euler - obj_euler
     current_euler_diff = wrap_to_pi(current_euler_diff)
 
-    yaw_deviation = torch.abs(current_euler_diff[:, 2]-math.pi)  # yaw is the 3rd component
+    yaw_deviation = torch.abs(current_euler_diff[:, 2]+math.pi)  # yaw is the 3rd component
     # print(f"yaw_deviation: {yaw_deviation}")
     reward = 1.0 - torch.tanh(yaw_deviation / std)
     

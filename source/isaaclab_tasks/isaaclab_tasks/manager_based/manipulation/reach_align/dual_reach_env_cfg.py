@@ -322,43 +322,43 @@ class DualArmRewardsCfg:
         func=mdp.action_magnitude_reward,
         weight=0.1,
     )
-    # ee1_orientation_stability = RewTerm(
-    #     func=mdp.ee1_orientation_stability_reward,
-    #     params={
-    #         "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
-    #         "object_cfg": SceneEntityCfg("Box"),
-    #     },
-    #     weight=0.001,
-    # )
-    # ee2_orientation_stability = RewTerm(
-    #     func=mdp.ee2_orientation_stability_reward,
-    #     params={
-    #         "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
-    #         "object_cfg": SceneEntityCfg("Box"),
-    #     },
-    #     weight=0.0001,
-    # )
+    ee1_orientation_stability = RewTerm(
+        func=mdp.ee1_orientation_stability_reward,
+        params={
+            "ee1_frame_cfg": SceneEntityCfg("ee_frame1"),
+            "object_cfg": SceneEntityCfg("Box"),
+        },
+        weight=0.1,
+    )
+    ee2_orientation_stability = RewTerm(
+        func=mdp.ee2_orientation_stability_reward,
+        params={
+            "ee2_frame_cfg": SceneEntityCfg("ee_frame2"),
+            "object_cfg": SceneEntityCfg("Box"),
+        },
+        weight=0.1,
+    )
     
     target_orientation_stability = RewTerm(
         func=mdp.target_orientation_stability_reward,
         params={
             "object_cfg": SceneEntityCfg("Box"),
         },
-        weight=0.001,
+        weight=1,
     )
     
     action_rate_robot = RewTerm(
         func=mdp.action_rate_l2, 
-        weight=-0.0001,
+        weight=-1e-6,
     )
     joint_vel_robot1 = RewTerm(
         func=mdp.joint_vel_l2, 
-        weight=-0.0001,
+        weight=-1e-6,
         params={"asset_cfg": SceneEntityCfg("robot1")}
     )
     joint_vel_robot2 = RewTerm(
         func=mdp.joint_vel_l2, 
-        weight=-0.0001,
+        weight=-1e-6,
         params={"asset_cfg": SceneEntityCfg("robot2")}
     )
 
@@ -376,16 +376,16 @@ class DualArmCurriculumCfg:
     # 第一个机械臂的课程学习
     action_rate_robot = CurrTerm(
         func=mdp.modify_reward_weight, 
-        params={"term_name": "action_rate_robot", "weight": -0.005, "num_steps": 4500}
+        params={"term_name": "action_rate_robot", "weight": -1e-1, "num_steps": 10000}
     )
     joint_vel_robot1 = CurrTerm(
         func=mdp.modify_reward_weight, 
-        params={"term_name": "joint_vel_robot1", "weight": -0.001, "num_steps": 4500}
+        params={"term_name": "joint_vel_robot1", "weight": -1e-1, "num_steps": 10000}
     )
 
     joint_vel_robot2 = CurrTerm(
         func=mdp.modify_reward_weight, 
-        params={"term_name": "joint_vel_robot2", "weight": -0.001, "num_steps": 4500}
+        params={"term_name": "joint_vel_robot2", "weight": -1e-1, "num_steps": 10000}
     )
 
 
