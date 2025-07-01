@@ -194,7 +194,7 @@ class DualArmObservationsCfg:
             noise=Unoise(n_min=-0.01, n_max=0.01)
         )
         # 箱子状态（核心观察）
-        object_position = ObsTerm(func=mdp.object_pose_in_robot_root_frame)
+        # object_position = ObsTerm(func=mdp.object_pose_in_robot_root_frame)
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose1"})
         last_actions = ObsTerm(func=mdp.last_action)
 
@@ -224,34 +224,34 @@ class DualArmEventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("Box", body_names="Box"),
-            "static_friction_range": (4.5, 5.5),
-            "dynamic_friction_range": (4.5, 5.5),
+            "static_friction_range": (1, 5),
+            "dynamic_friction_range": (1, 5),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 250,
         },
     )
-    # robot1_joint_stiffness_and_damping = EventTerm(
-    #   func=mdp.randomize_actuator_gains,
-    #   mode="reset",
-    #   params={
-    #       "asset_cfg": SceneEntityCfg("robot1", joint_names=".*"),
-    #       "stiffness_distribution_params": (0.75, 1.5),
-    #       "damping_distribution_params": (0.3, 3.0),
-    #       "operation": "scale",
-    #       "distribution": "log_uniform",
-    #   },
-    # )
-    # robot2_joint_stiffness_and_damping = EventTerm(
-    #   func=mdp.randomize_actuator_gains,
-    #   mode="reset",
-    #   params={
-    #       "asset_cfg": SceneEntityCfg("robot2", joint_names=".*"),
-    #       "stiffness_distribution_params": (0.75, 1.5),
-    #       "damping_distribution_params": (0.3, 3.0),
-    #       "operation": "scale",
-    #       "distribution": "log_uniform",
-    #   },
-    # )
+    robot1_joint_stiffness_and_damping = EventTerm(
+      func=mdp.randomize_actuator_gains,
+      mode="reset",
+      params={
+          "asset_cfg": SceneEntityCfg("robot1", joint_names=".*"),
+          "stiffness_distribution_params": (0.75, 1.5),
+          "damping_distribution_params": (0.3, 3.0),
+          "operation": "scale",
+          "distribution": "log_uniform",
+      },
+    )
+    robot2_joint_stiffness_and_damping = EventTerm(
+      func=mdp.randomize_actuator_gains,
+      mode="reset",
+      params={
+          "asset_cfg": SceneEntityCfg("robot2", joint_names=".*"),
+          "stiffness_distribution_params": (0.75, 1.5),
+          "damping_distribution_params": (0.3, 3.0),
+          "operation": "scale",
+          "distribution": "log_uniform",
+      },
+    )
 
 @configclass
 class DualArmRewardsCfg:

@@ -361,11 +361,16 @@ def ee1_orientation_stability_reward(
     # print(f"ee1_euler: {ee1_euler}")
     # 计算当前的欧拉角差异
     current_euler_diff = ee1_euler - obj_euler
+    # yaw = current_euler_diff[:, 2]
+    # yaw_fixed = torch.where(yaw > 0, yaw - math.pi, yaw + math.pi)
+    # current_euler_diff[:, 2] = yaw_fixed
+    # print(f"current_euler_diff: {current_euler_diff}")
     current_euler_diff = wrap_to_pi(current_euler_diff)
+    orientation_deviation = torch.norm(current_euler_diff, dim=1) 
     yaw_deviation = torch.abs(current_euler_diff[:, 2]+math.pi)  # yaw is the 3rd component
-    # print(f"yaw_deviation: {yaw_deviation}")
+    # print(f"orientation_deviation: {orientation_deviation}")
+    # reward = 1.0 - torch.tanh(yaw_deviation / std)
     reward = 1.0 - torch.tanh(yaw_deviation / std)
-    
     return reward
 
 
@@ -388,8 +393,9 @@ def ee2_orientation_stability_reward(
     current_euler_diff = ee2_euler - obj_euler
     current_euler_diff = wrap_to_pi(current_euler_diff)
 
-    yaw_deviation = torch.abs(current_euler_diff[:, 2]+math.pi)  # yaw is the 3rd component
-    # print(f"yaw_deviation: {yaw_deviation}")
+    yaw_deviation = torch.abs(current_euler_diff[:, 2])  # yaw is the 3rd component
+    # orientation_deviation = torch.norm(current_euler_diff, dim=1)  # L2 范数
+    # print(f"yaw_deviation: {orientation_deviation}")
     reward = 1.0 - torch.tanh(yaw_deviation / std)
     
     return reward

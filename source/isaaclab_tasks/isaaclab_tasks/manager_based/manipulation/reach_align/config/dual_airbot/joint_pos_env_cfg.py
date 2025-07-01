@@ -27,25 +27,24 @@ class DualAirbotAlignEnvCfg(DualArmReachEnvCfg):
         self.scene.robot1 = DUAL_AIRBOT_CFG.replace(prim_path="{ENV_REGEX_NS}/robot1")
         self.scene.robot1.init_state.rot = (0.7071,0,0,0.7071)  # 设置第一个机械臂的位置
         self.scene.robot1.init_state.joint_pos = {
-            "joint1": -1.5707,      
+            "joint1": -1.6180,  
             "joint2": -0.9272,  
-            "joint3": 0.5140, 
-            "joint4": 1.4544,
-            "joint5": 0.4149,
-            "joint6": -1.4651,  
+            "joint3": 0.5140,  
+            "joint4": 1.4525, 
+            "joint5": 0.4145,   
+            "joint6": -1.4639, 
         }
-
         # 配置第二个机械臂 (Robot2)
         robot2_cfg = DUAL_AIRBOT_CFG.replace(prim_path="{ENV_REGEX_NS}/robot2")
         robot2_cfg.init_state.pos = (0.69, 0.0, 0.0)  # 设置第二个机械臂的位置
         robot2_cfg.init_state.rot = (0.7071,0,0,0.7071)
         robot2_cfg.init_state.joint_pos = {
-            "joint1": 1.5707,      
-            "joint2": -0.9272,  
-            "joint3": 0.5140, 
-            "joint4": 1.4544,
-            "joint5": 0.4149,
-            "joint6": -1.4651,     
+            "joint1": 1.47764,
+            "joint2": -0.9298,
+            "joint3": 0.5163,
+            "joint4": 1.3422,
+            "joint5": 0.4225,
+            "joint6": -1.3628,   
         }
         self.scene.robot2 = robot2_cfg
 

@@ -7,7 +7,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
 from .rough_env_cfg import G1RoughEnvCfg
-
+import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 
 @configclass
 class G1FlatEnvCfg(G1RoughEnvCfg):
@@ -23,6 +23,33 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         self.observations.policy.height_scan = None
         # no terrain curriculum
         self.curriculum.terrain_levels = None
+
+        self.actions.joint_pos= mdp.JointPositionActionCfg(
+            asset_name="robot", joint_names=["left_hip_pitch_joint", "right_hip_pitch_joint",
+            "torso_joint",
+            "left_hip_roll_joint",
+            "right_hip_roll_joint",
+            "left_shoulder_pitch_joint",
+            "right_shoulder_pitch_joint",
+            "left_hip_yaw_joint",
+            "right_hip_yaw_joint",
+            "left_shoulder_roll_joint",
+            "right_shoulder_roll_joint",
+            "left_knee_joint",
+            "right_knee_joint",
+            "left_shoulder_yaw_joint",
+            "right_shoulder_yaw_joint",
+            "left_ankle_pitch_joint",
+            "right_ankle_pitch_joint",
+            "left_elbow_pitch_joint",
+            "right_elbow_pitch_joint",
+            "left_ankle_roll_joint",
+            "right_ankle_roll_joint",
+            "left_elbow_roll_joint",
+            "right_elbow_roll_joint",
+        ], scale=0.5, use_default_offset=True
+        )
+            
 
         # Rewards
         self.rewards.track_ang_vel_z_exp.weight = 1.0
